@@ -959,6 +959,49 @@ class Config(configfile.ConfigFileWithProfiles):
         self.setProfileIntValue('snapshots.remove_old_snapshots.value', value, profile_id)
         self.setProfileIntValue('snapshots.remove_old_snapshots.unit', unit, profile_id)
 
+    def freeSpaceWarning(self, profile_id=None):
+        return (
+            self.profileBoolValue('snapshots.free_space_warning.enabled', False, profile_id),
+            self.profileIntValue('snapshots.free_space_warning.value', 1, profile_id),
+            self.profileIntValue('snapshots.free_space_warning.unit', self.DISK_UNIT_GB, profile_id)
+        )
+
+    def freeSpaceWarningEnabled(self, profile_id=None):
+        return self.profileBoolValue('snapshots.free_space_warning.enabled', False, profile_id)
+
+    def freeSpaceWarningMib(self, profile_id=None):
+        enabled, value, unit = self.freeSpaceWarning(profile_id)
+        if not enabled:
+            return 0
+
+        if unit == self.DISK_UNIT_MB:
+            return value
+
+        if unit == self.DISK_UNIT_GB:
+            return value * 1024  # Convert GB to MiB
+
+        return 0
+
+    def setFreeSpaceWarning(self, enabled, value, unit, profile_id=None):
+        # Get min_free_space settings for comparison
+        min_enabled, min_value, min_unit = self.minFreeSpace(profile_id)
+        min_mib = self.minFreeSpaceMib(profile_id)
+
+        # Convert warning value to MiB for comparison
+        warning_mib = value if unit == self.DISK_UNIT_MB else value * 1024
+
+        # Check if warning value is less than min_free_space
+        if min_enabled and warning_mib < min_mib:
+            raise ValueError(
+                f"Free space warning value ({warning_mib} MiB) must be equal to or "
+                f"higher than min_free_space ({min_mib} MiB)"
+            )
+
+        # Set the values
+        self.setProfileBoolValue('snapshots.free_space_warning.enabled', enabled, profile_id)
+        self.setProfileIntValue('snapshots.free_space_warning.value', value, profile_id)
+        self.setProfileIntValue('snapshots.free_space_warning.unit', unit, profile_id)
+
     def minFreeSpace(self, profile_id = None):
                 #?Remove snapshots until \fIprofile<N>.snapshots.min_free_space.value\fR
                 #?free space is reached.
